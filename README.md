@@ -39,5 +39,5 @@ Data from the New York City Housing and Vacancy Survey (NYCHVS), NYU Furman Cent
 
 # Outputs & Results
 
-- table1.html, table2.html, table3.html: Finalized stargazer HTML output tables for the main analysis and subanalysis regressions, ready for presentation or publication.
+- table1.html, table2.html, table3.html: Finalized stargazer HTML output tables for the main analysis and subanalysis regressions.
 
