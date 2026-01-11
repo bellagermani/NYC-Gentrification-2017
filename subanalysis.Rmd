@@ -1,0 +1,103 @@
+---
+title: "Subanalysis"
+author: "Bella Germani"
+date: "2025-11-21"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(broom)
+library(corrplot)
+library(stargazer)
+
+```
+
+
+```{r}
+
+SUB <- read.csv("/Users/isabellagermani/Desktop/MS THSS/data/subanalysis.csv", header = TRUE, stringsAsFactors = FALSE)
+
+SUB$X <- NULL # getting rid of the initial x col
+
+# checking data
+cat("Observations:", nrow(SUB), "\n")
+cat("Variables:", ncol(SUB))
+
+# Converting binary/categorical variables to numeric
+SUB$SBA<- as.numeric(SUB$SBA)
+SUB$Age<- as.numeric(SUB$Age)
+SUB$Displaced<- as.numeric(SUB$Displaced)
+SUB$Tenure <- as.numeric(SUB$Tenure)
+SUB$is_hispanic <- as.numeric(SUB$is_hispanic)
+SUB$is_black <- as.numeric(SUB$is_black)
+SUB$is_asian <- as.numeric(SUB$is_asian)
+SUB$is_immigrant <- as.numeric(SUB$is_immigrant)
+SUB$Gender <- as.numeric(SUB$Gender)
+SUB$Welfare <- as.numeric(SUB$Welfare)
+SUB$Rent...Income <- as.numeric(SUB$Rent...Income)
+SUB$General.Health <- as.numeric(SUB$General.Health)
+SUB$Number.of.persons.in.household <- as.numeric(SUB$Number.of.persons.in.household)
+
+summary(SUB)
+
+```
+
+Correlation heatmap:
+
+```{r}
+
+# Correlation matrix of some important variables 
+vars <- c("Displaced", "Age", "is_hispanic", "is_black", "is_asian", "is_immigrant", "Welfare", "General.Health", "Number.of.persons.in.household", "Gender")
+
+cor_matrix <- cor(SUB[vars], use = "complete.obs")
+corrplot(cor_matrix, method = "circle", 
+         order = "hclust", tl.cex = 0.9)
+
+```
+
+Regression: 
+
+```{r}
+
+# Model 1
+model1 <- glm(Displaced ~ Age + is_black + is_hispanic + is_asian + is_immigrant + Gender + Number.of.persons.in.household + Welfare + Rent...Income + Total.Household.Income + Monthly.Gross.Rent + Age:is_black + factor(SBA), data = SUB, family = binomial(link = "logit"))
+# summary(model1)
+
+stargazer(model1,
+          type = "html",
+          star.cutoffs = c(0.10, 0.05, 0.01),
+          report = "vc*s", # show stars next to coeffs
+          title = "Table 2. Logit Regression Estimates of Displacement Liklihood Model",
+          order = c("Age", "Number.of.persons.in.household", "Total.Household.Income", "Monthly.Gross.Rent", "is_black", "is_hispanic", "is_asian", "is_immigrant","Gender", "Welfare", "Rent...Income"), 
+          omit = "SBA", # not showing all fes
+          out = "table2.html"
+)
+
+```
+
+Odds Ratios - likelihood of being displaced
+
+```{r}
+
+# Odds ratios
+or <- exp(coef(model1))
+
+# 95% confidence intervals 
+ci <- exp(confint(model1))
+
+stargazer(
+  model1,
+  type = "html",
+  coef = list(or),
+  ci.custom = list(ci),
+  ci = TRUE,
+  p.auto = FALSE,          
+  star.cutoffs = NULL, # no stars
+  title = "Table 2. Logit Regression Estimates of Displacement Likelihood (Odds Ratios)",
+  omit = "SBA",
+  out = "table3.html"
+)
+
+```

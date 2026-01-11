@@ -1,0 +1,190 @@
+---
+title: "SBA_Analysis"
+author: "Bella Germani"
+date: "2025-11-15"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(car)
+library(dplyr)
+library(lmtest)
+library(sandwich)
+library(corrplot)
+library(stargazer)
+
+
+SBA <- read.csv("/Users/isabellagermani/Desktop/MS THSS/data/SBA.csv", header = TRUE, stringsAsFactors = FALSE)
+
+SBA$X <- NULL # getting rid of the initial x col
+
+# checking data
+cat("Observations:", nrow(SBA), "\n")
+cat("Variables:", ncol(SBA))
+
+# converting raceth_group to factor where reference category = white
+SBA$raceth_group <- factor(SBA$raceth_group, 
+                          levels = c("White", "Black", "Hispanic", "Asian"))
+# check
+levels(SBA$raceth_group)
+
+```
+
+```{r}
+
+summary(SBA)
+
+```
+
+Correlation Matrix
+
+```{r}
+
+# Correlation matrix of some important variables 
+vars <- c("PCT_ACTIVE_GENTR", "aff_30_pre", "resilience_index", "pov_rate", "rent_gap_index", "black", "hispan", "asian")
+
+cor_matrix <- cor(SBA[vars], use = "complete.obs")
+corrplot(cor_matrix, method = "circle", 
+         order = "hclust", tl.cex = 0.9)
+
+# corr matrix of housing quality vars
+vars <- c("rats","r_aches","deter","housing_quality","pov_rate","sound","med_hous_inc")
+
+cor_matrix <- cor(SBA[vars], use = "complete.obs")
+corrplot(cor_matrix, method = "circle", 
+         order = "hclust")
+
+```
+
+Initial Regressions:
+
+```{r}
+
+# MODEL1
+model1 <- lm(PCT_ACTIVE_GENTR ~ aff_30_pre + rent_gap_index + resilience_index + pov_rate, data = SBA)
+# summary(model1)
+
+# MODEL2
+model2 <- lm(PCT_ACTIVE_GENTR ~ aff_30_pre + rent_gap_index + resilience_index + pov_rate + black + hispan + asian, data = SBA)
+# summary(model2)
+
+# MODEL3
+model3 <- lm(PCT_ACTIVE_GENTR ~ aff_30_pre + rent_gap_index + resilience_index + pov_rate + black + hispan + asian + resilience_index:black + resilience_index:hispan + resilience_index:asian, data = SBA)
+# summary(model3)
+ 
+stargazer(model1, model2, model3, title = "Table 1. Determinants of Active Gentrification", type = "text")
+
+```
+
+Multicollinearity checks:
+
+```{r}
+
+vif(model1)
+vif(model2)
+vif(model3, type = "predictor") # to handle interaction
+
+```
+Heteroskedasticity test:
+
+```{r}
+
+bptest(model3) 
+
+```
+
+ROBUST Models:
+using HC2 over HC3 for n = 55 (better for small sample size)
+
+```{r}
+
+robust_se1 <- sqrt(diag(vcovHC(model1, type = "HC2")))
+robust_se2 <- sqrt(diag(vcovHC(model2, type = "HC2")))
+robust_se3 <- sqrt(diag(vcovHC(model3, type = "HC2")))
+
+stargazer(model1, model2, model3,
+          type = "html",
+          se = list(robust_se1, robust_se2, robust_se3),
+          title = "Table 1. OLS Estimates for Active Gentrifier Models",
+          align = TRUE,
+          star.cutoffs = c(0.10, 0.05, 0.01),
+          notes = "Robust standard errors in parentheses",
+          notes.append = TRUE,
+          report = "vc*s",
+          out = "table1.html"
+)
+
+```
+
+F-test for demographics:
+
+```{r}
+
+# RESTRICTED model: base effect
+restricted <- lm(PCT_ACTIVE_GENTR ~ aff_30_pre + rent_gap_index + resilience_index + pov_rate, data = SBA)
+
+# Comparing with FULL model: additional effect of races
+full <- lm(PCT_ACTIVE_GENTR ~ aff_30_pre + rent_gap_index + resilience_index + pov_rate + black + hispan + asian, data = SBA)
+
+# RSEs for stargazer
+robust_se_restricted <- sqrt(diag(vcovHC(restricted, type = "HC2")))
+robust_se_full <- sqrt(diag(vcovHC(full, type = "HC2")))
+
+# f_test 
+f_test_result <- linearHypothesis(full, c("black = 0", "hispan = 0"), vcov. = vcovHC(full, type = "HC2"))
+
+# f-stats & p-values
+f_stat <- f_test_result$F[2]
+f_pvalue <- f_test_result$`Pr(>F)`[2]
+f_df <- f_test_result$Df[2]
+
+# table
+stargazer(restricted, full,
+          type = "text",
+          se = list(robust_se_restricted, robust_se_full),          
+          title = "F-test for the significance of Race variables",          
+          column.labels = c("Restricted", "Full"), 
+          star.cutoffs = c(0.10, 0.05, 0.01),
+          report = "vc*s"
+)
+         
+```
+
+F-Test for Interactions:
+
+```{r}
+
+# RESTRICTED model: base effect
+restricted <- lm(PCT_ACTIVE_GENTR ~ aff_30_pre + rent_gap_index + resilience_index + pov_rate + black + hispan + asian, data = SBA)
+
+# Comparing with FULL model: additional effect of races
+full <- lm(PCT_ACTIVE_GENTR ~ aff_30_pre + rent_gap_index + resilience_index + pov_rate + black + hispan + asian + resilience_index:black + resilience_index:hispan + resilience_index:asian, data = SBA)
+
+# RSEs for stargazer
+robust_se_restricted <- sqrt(diag(vcovHC(restricted, type = "HC2")))
+robust_se_full <- sqrt(diag(vcovHC(full, type = "HC2")))
+
+# f_test 
+f_test_result <- linearHypothesis(full, c("resilience_index:black = 0", "resilience_index:hispan = 0"), vcov. = vcovHC(full, type = "HC2"))
+
+# f-stats & p-values
+f_stat <- f_test_result$F[2]
+f_pvalue <- f_test_result$`Pr(>F)`[2]
+f_df <- f_test_result$Df[2]
+
+# table
+stargazer(restricted, full,
+          type = "text",
+          se = list(robust_se_restricted, robust_se_full),          
+          title = "F-test for the significance of Race variables",          
+          column.labels = c("Restricted", "Full"), 
+          star.cutoffs = c(0.10, 0.05, 0.01),
+          report = "vc*s"
+)
+         
+```
+
