@@ -14,7 +14,7 @@ Data from the New York City Housing and Vacancy Survey (NYCHVS), NYU Furman Cent
   
 - ICPSR.ipynb: Cleans the 12 ICPSR datasets containing various SBA-level characteristics. Processes each source individually to produce cleaned data files for merging and analysis.
   
-- Crosswalk.ipynb: Constructs a crosswalk file to correctly map Sub-Borough Area (SBA) codes to their corresponding Public Use Microdata Area (PUMA) codes, using 2010 Census tract FIPS codes as the linkage.
+- Crosswalk.ipynb: Constructs a crosswalk file to correctly map Sub-Borough Area (SBA) codes to their corresponding Public Use Microdata Area (PUMA) codes, using 2010 Census tract FIPS codes.
 
 
 # Merging & Geospatial Mapping
